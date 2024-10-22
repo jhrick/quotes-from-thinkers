@@ -1,4 +1,4 @@
-package internal
+package services
 
 import (
 	"fmt"
@@ -7,16 +7,19 @@ import (
 	"github.com/gocolly/colly/v2"
 )
 
-type QuoteSchema struct {
-  Author string
-  Text   string
-}
-
-type QuoteService struct {
+type implScrapper struct {
   QuoteChannel chan QuoteSchema
 }
 
-func (q *QuoteService) GetData(subdirectory string) {
+func ScrapperService(quoteChannel chan QuoteSchema) implScrapper {
+  impl := &implScrapper{
+    QuoteChannel: quoteChannel,
+  }
+
+  return *impl
+}
+
+func (s *implScrapper) GetData(subdirectory string) {
   domain := "https://www.pensador.com"
 
   c := colly.NewCollector()
@@ -30,7 +33,7 @@ func (q *QuoteService) GetData(subdirectory string) {
       Text: text,
     }
 
-    q.QuoteChannel <- quote
+    s.QuoteChannel <- quote
   })
 
   c.OnHTML("a.nav", func (e *colly.HTMLElement) {
@@ -40,7 +43,7 @@ func (q *QuoteService) GetData(subdirectory string) {
 
     subdirectory = e.Attr("href")
 
-    q.GetData(subdirectory)
+    s.GetData(subdirectory)
   })
 
   link := fmt.Sprintf("%s%s", domain, subdirectory)
