@@ -1,6 +1,11 @@
 package internal
 
-import "github.com/gocolly/colly/v2"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/gocolly/colly/v2"
+)
 
 type QuoteSchema struct {
   Author string
@@ -11,10 +16,10 @@ type QuoteService struct {
   QuoteChannel chan QuoteSchema
 }
 
-func (q *QuoteService) GetData() {
-  c := colly.NewCollector()
+func (q *QuoteService) GetData(subdirectory string) {
+  domain := "https://www.pensador.com"
 
-  link := "https://www.pensador.com/frases_pensadores/"
+  c := colly.NewCollector()
 
   c.OnHTML("div.thought-card", func (e *colly.HTMLElement) {
     author := e.ChildText("span.author-name")
@@ -27,6 +32,20 @@ func (q *QuoteService) GetData() {
 
     q.QuoteChannel <- quote
   })
+
+  c.OnHTML("a.nav", func (e *colly.HTMLElement) {
+    if !strings.Contains(e.Text, "Próxima") {
+      return
+    }
+
+    subdirectory = e.Attr("href")
+
+    q.GetData(subdirectory)
+  })
+
+  link := fmt.Sprintf("%s%s", domain, subdirectory)
+
+  fmt.Println(link)
 
   c.Visit(link)
 }

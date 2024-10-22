@@ -17,7 +17,9 @@ func main() {
     QuoteChannel: quoteChannel,
   }
 
-  go quoteService.GetData()
+  subdirectory := "/frases_pensadores/1"
+
+  go quoteService.GetData(subdirectory)
 
   stdout := json.NewEncoder(os.Stdout)
   stdout.SetIndent("", "  ")
