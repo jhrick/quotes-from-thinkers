@@ -7,22 +7,20 @@ import (
 	"github.com/jhrick/quotes-from-thinkers/internal/services"
 )
 
-var quoteService services.QuoteService
 
 func main() {
   quoteChannel := make(chan services.QuoteSchema)
-  defer close(quoteChannel)
 
   scrapperService := services.ScrapperService(quoteChannel)
 
-  quoteService = services.QuoteService{
-    QuoteChannel: quoteChannel,
-  }
+  quoteService := services.QuoteService(scrapperService.QuoteChannel)
 
   subdirectory := "/frases_pensadores/1"
 
-  go scrapperService.GetData(subdirectory)
+  go scrapperService.GetData(subdirectory, 2)
 
+  quoteService.GetQuotes()
+  
   stdout := json.NewEncoder(os.Stdout)
   stdout.SetIndent("", "  ")
 

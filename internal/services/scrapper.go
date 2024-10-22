@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gocolly/colly/v2"
@@ -19,7 +20,7 @@ func ScrapperService(quoteChannel chan QuoteSchema) implScrapper {
   return *impl
 }
 
-func (s *implScrapper) GetData(subdirectory string) {
+func (s *implScrapper) GetData(subdirectory string, limit int) {
   domain := "https://www.pensador.com"
 
   c := colly.NewCollector()
@@ -41,9 +42,16 @@ func (s *implScrapper) GetData(subdirectory string) {
       return
     }
 
+    pageNum := getPageNum(subdirectory)
+
+    if pageNum >= strconv.Itoa(limit) {
+      close(s.QuoteChannel)
+      return
+    }
+
     subdirectory = e.Attr("href")
 
-    s.GetData(subdirectory)
+    s.GetData(subdirectory, limit)
   })
 
   link := fmt.Sprintf("%s%s", domain, subdirectory)
