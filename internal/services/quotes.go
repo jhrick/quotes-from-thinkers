@@ -7,8 +7,14 @@ import (
 )
 
 type QuoteSchema struct {
+  ID     string
   Author string
   Text   string
+}
+
+type QuoteModel struct {
+  ID   string
+  Text string
 }
 
 type implQuote struct {
@@ -23,7 +29,7 @@ func QuoteService(quoteChannel chan QuoteSchema) implQuote {
   return *impl
 }
 
-var quotes map[string][]string
+var quotes map[string][]QuoteModel
 
 func (q *implQuote) GetQuotes() {
   fName := "quotes.json"
@@ -34,10 +40,11 @@ func (q *implQuote) GetQuotes() {
   }
   defer file.Close()
 
-  quotes = make(map[string][]string)
+  quotes = make(map[string][]QuoteModel)
 
   for quote := range q.QuoteChannel {
-    quotes[quote.Author] = append(quotes[quote.Author], quote.Text)
+    line := QuoteModel{ ID: quote.ID, Text: quote.Text }
+    quotes[quote.Author] = append(quotes[quote.Author], line)
 
     _, ok := <-q.QuoteChannel
     if !ok {

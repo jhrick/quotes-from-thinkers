@@ -26,10 +26,12 @@ func (s *implScrapper) GetData(subdirectory string, limit int) {
   c := colly.NewCollector()
 
   c.OnHTML("div.thought-card", func (e *colly.HTMLElement) {
+    id := e.ChildAttr("p", "id")
     author := e.ChildText("span.author-name")
-    text := e.ChildText("p.frase.fr")
+    text := e.ChildText("p.frase")
 
     quote := QuoteSchema{
+      ID: id,
       Author: author,
       Text: text,
     }
