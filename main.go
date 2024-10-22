@@ -1,12 +1,6 @@
 package main
 
-import (
-	"encoding/json"
-	"os"
-
-	"github.com/jhrick/quotes-from-thinkers/internal/services"
-)
-
+import "github.com/jhrick/quotes-from-thinkers/internal/services"
 
 func main() {
   quoteChannel := make(chan services.QuoteSchema)
@@ -20,11 +14,4 @@ func main() {
   go scrapperService.GetData(subdirectory, 2)
 
   quoteService.GetQuotes()
-  
-  stdout := json.NewEncoder(os.Stdout)
-  stdout.SetIndent("", "  ")
-
-  for quote := range quoteService.QuoteChannel {
-    stdout.Encode(services.QuoteSchema{Author: quote.Author, Text: quote.Text})
-  }
 }
