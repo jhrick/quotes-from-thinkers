@@ -1,17 +1,64 @@
 package main
 
-import "github.com/jhrick/quotes-from-thinkers/internal/services"
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jhrick/quotes-from-thinkers/internal/routes"
+	"github.com/jhrick/quotes-from-thinkers/internal/services"
+	"github.com/jhrick/quotes-from-thinkers/internal/store"
+	"github.com/joho/godotenv"
+)
 
 func main() {
-  quoteChannel := make(chan services.QuoteSchema)
+  if err := godotenv.Load("../.env"); err != nil {
+    panic(err)
+  }
 
-  scrapperService := services.ScrapperService(quoteChannel)
+  ctx := context.Background()
 
-  quoteService := services.QuoteService(scrapperService.QuoteChannel)
+  pool, err := pgxpool.New(ctx, fmt.Sprintf(
+    "user=%s password=%s host=%s port=%s dbname=%s",
+    os.Getenv("DATABASE_USER"),
+    os.Getenv("DATABASE_PASSWORD"),
+    os.Getenv("DATABASE_HOST"),
+    os.Getenv("DATABASE_PORT"),
+    os.Getenv("DATABASE_NAME"),
+  ))
+  if err != nil {
+    panic(err)
+  }
 
-  subdirectory := "/frases_pensadores/1"
+  defer pool.Close()
 
-  go scrapperService.GetData(subdirectory, 2)
+  if err := pool.Ping(ctx); err != nil {
+    panic(err)
+  }
 
-  quoteService.GetQuotes()
+  store.Pool = pool
+  store.Ctx = ctx
+  
+  quotesChannel := make(chan services.QuotesSchema)
+
+  handler := routes.NewHandler(quotesChannel)
+
+  go func() {
+    if err := http.ListenAndServe(":8080", handler); err != nil {
+      if !errors.Is(err, http.ErrServerClosed) {
+        panic(err)
+      }
+    }
+  }()
+
+  log.Println("Server Running!")
+
+  quit := make(chan os.Signal, 1)
+  signal.Notify(quit, os.Interrupt)
+  <-quit
 }
