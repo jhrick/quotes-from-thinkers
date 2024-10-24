@@ -1,6 +1,8 @@
 package services
 
-import "strings"
+import (
+	"strings"
+)
 
 func getPageNum(subdirectory string) string {
   pageNumWithSlash := strings.Split(subdirectory, "/frases_pensadores/")[1]
@@ -8,3 +10,4 @@ func getPageNum(subdirectory string) string {
 
   return pageNum
 }
+

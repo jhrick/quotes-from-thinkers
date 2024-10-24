@@ -9,12 +9,12 @@ import (
 )
 
 type implScrapper struct {
-  QuoteChannel chan QuoteSchema
+  quotesChannel chan QuotesSchema
 }
 
-func ScrapperService(quoteChannel chan QuoteSchema) implScrapper {
+func ScrapperService(quoteChannel chan QuotesSchema) implScrapper {
   impl := &implScrapper{
-    QuoteChannel: quoteChannel,
+    quotesChannel: quoteChannel,
   }
 
   return *impl
@@ -30,13 +30,13 @@ func (s *implScrapper) GetData(subdirectory string, limit int) {
     author := e.ChildText("span.author-name")
     text := e.ChildText("p.frase")
 
-    quote := QuoteSchema{
+    quote := QuotesSchema{
       ID: id,
       Author: author,
       Text: text,
     }
 
-    s.QuoteChannel <- quote
+    s.quotesChannel <- quote
   })
 
   c.OnHTML("a.nav", func (e *colly.HTMLElement) {
@@ -47,7 +47,7 @@ func (s *implScrapper) GetData(subdirectory string, limit int) {
     pageNum := getPageNum(subdirectory)
 
     if pageNum >= strconv.Itoa(limit) {
-      close(s.QuoteChannel)
+      close(s.quotesChannel)
       return
     }
 

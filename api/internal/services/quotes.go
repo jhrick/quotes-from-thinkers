@@ -4,34 +4,71 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"sync"
+
+	"github.com/jhrick/quotes-from-thinkers/internal/repository"
 )
 
-type QuoteSchema struct {
+
+type QuotesSchema struct {
   ID     string
   Author string
   Text   string
 }
 
-type QuoteModel struct {
+type QuotesModel struct {
   ID   string
   Text string
 }
 
-type implQuote struct {
-  QuoteChannel chan QuoteSchema
+type implQuotes struct {
+  QuotesChannel chan QuotesSchema
 }
 
-func QuoteService(quoteChannel chan QuoteSchema) implQuote {
-  impl := &implQuote{
-    QuoteChannel: quoteChannel,
+func QuotesService(quotesChannel chan QuotesSchema) implQuotes {
+  impl := &implQuotes{
+    QuotesChannel: quotesChannel,
   }
 
   return *impl
 }
 
-var quotes map[string][]QuoteModel
+var quotes map[string][]QuotesModel
 
-func (q *implQuote) GetQuotes() {
+func (q *implQuotes) InsertQuotes(wg *sync.WaitGroup) {
+  authors := make(map[string]string)
+
+  for quote := range q.QuotesChannel {
+    _, ok := <-q.QuotesChannel
+    if !ok {
+      break
+    }
+
+    wg.Add(1)
+
+    go func() {
+      defer wg.Done()
+
+      authorId, ok := authors[quote.Author]
+      if !ok {
+        id, err := repository.Author.Create(quote.Author)
+        if err != nil {
+          panic(err)
+        }
+
+        authors[quote.Author] = id
+        authorId = id
+      }
+
+      err := repository.Quotes.Create(quote.ID, authorId, quote.Text)
+      if err != nil {
+        panic(err)
+      }
+    }()
+  }
+}
+
+func (q *implQuotes) GetQuotes() {
   fName := "quotes.json"
   file, err := os.Create(fName)
   if err != nil {
@@ -40,13 +77,13 @@ func (q *implQuote) GetQuotes() {
   }
   defer file.Close()
 
-  quotes = make(map[string][]QuoteModel)
+  quotes = make(map[string][]QuotesModel)
 
-  for quote := range q.QuoteChannel {
-    line := QuoteModel{ ID: quote.ID, Text: quote.Text }
+  for quote := range q.QuotesChannel {
+    line := QuotesModel{ ID: quote.ID, Text: quote.Text }
     quotes[quote.Author] = append(quotes[quote.Author], line)
 
-    _, ok := <-q.QuoteChannel
+    _, ok := <-q.QuotesChannel
     if !ok {
       break
     }
