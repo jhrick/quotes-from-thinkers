@@ -2,7 +2,6 @@ package services
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 	"sync"
 
@@ -22,12 +21,14 @@ type QuotesModel struct {
 }
 
 type implQuotes struct {
-  QuotesChannel chan QuotesSchema
+  quotesChannel chan QuotesSchema
+  errChannel    chan error
 }
 
-func QuotesService(quotesChannel chan QuotesSchema) implQuotes {
+func QuotesService(quotesChannel chan QuotesSchema, errChannel chan error) implQuotes {
   impl := &implQuotes{
-    QuotesChannel: quotesChannel,
+    quotesChannel: quotesChannel,
+    errChannel: errChannel,
   }
 
   return *impl
@@ -38,8 +39,8 @@ var quotes map[string][]QuotesModel
 func (q *implQuotes) InsertQuotes(wg *sync.WaitGroup) {
   authors := make(map[string]string)
 
-  for quote := range q.QuotesChannel {
-    _, ok := <-q.QuotesChannel
+  for quote := range q.quotesChannel {
+    _, ok := <-q.quotesChannel
     if !ok {
       break
     }
@@ -53,7 +54,8 @@ func (q *implQuotes) InsertQuotes(wg *sync.WaitGroup) {
       if !ok {
         id, err := repository.Author.Create(quote.Author)
         if err != nil {
-          panic(err)
+          q.errChannel <- err
+          return
         }
 
         authors[quote.Author] = id
@@ -62,7 +64,8 @@ func (q *implQuotes) InsertQuotes(wg *sync.WaitGroup) {
 
       err := repository.Quotes.Create(quote.ID, authorId, quote.Text)
       if err != nil {
-        panic(err)
+        q.errChannel <- err
+        return
       }
     }()
   }
@@ -72,18 +75,18 @@ func (q *implQuotes) GetQuotes() {
   fName := "quotes.json"
   file, err := os.Create(fName)
   if err != nil {
-    log.Fatal(err.Error())
+    q.errChannel <- err
     return
   }
   defer file.Close()
 
   quotes = make(map[string][]QuotesModel)
 
-  for quote := range q.QuotesChannel {
+  for quote := range q.quotesChannel {
     line := QuotesModel{ ID: quote.ID, Text: quote.Text }
     quotes[quote.Author] = append(quotes[quote.Author], line)
 
-    _, ok := <-q.QuotesChannel
+    _, ok := <-q.quotesChannel
     if !ok {
       break
     }

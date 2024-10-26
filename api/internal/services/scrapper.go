@@ -10,11 +10,13 @@ import (
 
 type implScrapper struct {
   quotesChannel chan QuotesSchema
+  errChannel    chan error
 }
 
-func ScrapperService(quoteChannel chan QuotesSchema) implScrapper {
+func ScrapperService(quoteChannel chan QuotesSchema, errChannel chan error) implScrapper {
   impl := &implScrapper{
     quotesChannel: quoteChannel,
+    errChannel: errChannel,
   }
 
   return *impl
@@ -24,6 +26,10 @@ func (s *implScrapper) GetData(subdirectory string, limit int) {
   domain := "https://www.pensador.com"
 
   c := colly.NewCollector()
+
+  c.OnError(func(r *colly.Response, err error) {
+    s.errChannel <- err
+  })
 
   c.OnHTML("div.thought-card", func (e *colly.HTMLElement) {
     id := e.ChildAttr("p", "id")
@@ -35,7 +41,7 @@ func (s *implScrapper) GetData(subdirectory string, limit int) {
       Author: author,
       Text: text,
     }
-
+ 
     s.quotesChannel <- quote
   })
 
@@ -47,7 +53,6 @@ func (s *implScrapper) GetData(subdirectory string, limit int) {
     pageNum := getPageNum(subdirectory)
 
     if pageNum >= strconv.Itoa(limit) {
-      close(s.quotesChannel)
       return
     }
 

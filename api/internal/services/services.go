@@ -5,9 +5,9 @@ type ImplServices struct {
   Quotes   implQuotes
 }
 
-func Services(quotesChannel chan QuotesSchema) ImplServices {
-  implScrapper := ScrapperService(quotesChannel)
-  implQuotes := QuotesService(quotesChannel)
+func Services(quotesChannel chan QuotesSchema, errChannel chan error) ImplServices {
+  implScrapper := ScrapperService(quotesChannel, errChannel)
+  implQuotes := QuotesService(quotesChannel, errChannel)
 
   impl := ImplServices{
     Scrapper: implScrapper,

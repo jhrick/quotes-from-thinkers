@@ -11,7 +11,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jhrick/quotes-from-thinkers/internal/routes"
-	"github.com/jhrick/quotes-from-thinkers/internal/services"
 	"github.com/jhrick/quotes-from-thinkers/internal/store"
 	"github.com/joho/godotenv"
 )
@@ -44,9 +43,7 @@ func main() {
   store.Pool = pool
   store.Ctx = ctx
   
-  quotesChannel := make(chan services.QuotesSchema)
-
-  handler := routes.NewHandler(quotesChannel)
+  handler := routes.NewHandler()
 
   go func() {
     if err := http.ListenAndServe(":8080", handler); err != nil {
