@@ -5,15 +5,13 @@ import (
 	"sync"
 
 	"github.com/go-chi/chi"
-	"github.com/jhrick/quotes-from-thinkers/internal/services"
+	"github.com/gorilla/websocket"
 )
 
 type apiHandler struct {
-  r       *chi.Mux
-  s       services.ImplServices
-  mu      *sync.Mutex
-  qChan   chan services.QuotesSchema
-  errChan chan error
+  r        *chi.Mux
+  upgrader websocket.Upgrader
+  mu       *sync.Mutex
 }
 
 func (h apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -21,24 +19,19 @@ func (h apiHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func NewHandler() http.Handler {
-  quotesChannel := make(chan services.QuotesSchema)
-  errChannel := make(chan error)
-
   a := apiHandler{
-    s: services.Services(quotesChannel, errChannel),
+    upgrader: websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }},
     mu: &sync.Mutex{},
-    qChan: quotesChannel,
-    errChan: errChannel,
   }
 
   r := chi.NewRouter()
 
   r.Route("/api", func(r chi.Router) {
     r.Route("/scrapper/", func(r chi.Router) {
-      r.Get("/{limit}", a.handlerScrapper)
+      r.Get("/", a.handlerScrapper)
     })
     r.Route("/quotes", func(r chi.Router) {
-      r.Post("/", a.handleImportQuotes)
+      r.Post("/import", a.handleImportQuotes)
       r.Get("/", a.handleGetQuote)
     })
   })

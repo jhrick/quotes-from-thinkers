@@ -1,35 +1,39 @@
 package routes
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/jhrick/quotes-from-thinkers/internal/services"
 )
 
-func (a *apiHandler) handlerScrapper(w http.ResponseWriter, r *http.Request) {
-  w.Header().Set("Connection", "Keep-Alive")
-  w.Header().Set("Transfer-Encoding", "chunked")
-  w.Header().Set("X-Content-Type-Options", "nosniff")
+var scrapperService services.ImplScrapper = services.ScrapperService()
 
-  limit, _ := strconv.Atoi(chi.URLParam(r, "limit"))
+func (a *apiHandler) handlerScrapper(w http.ResponseWriter, r *http.Request) {
+  limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
   
+  c, err := a.upgrader.Upgrade(w, r, nil)
+  if err != nil {
+    log.Print("upgrade:", err)
+    return
+  }
+  defer c.Close()
+
+  quotesChannel := make(chan services.QuotesSchema)
+
   subdirectory := "/frases_pensadores/1"
 
-  go a.s.Scrapper.GetData(subdirectory, limit)
+  go scrapperService.GetData(quotesChannel, subdirectory, limit)
 
   type response struct {
-    Success bool   `json:"success"`
-    Error   error  `json:"error"`
+    Success bool `json:"success"`
   }
 
-  if len(a.errChan) != 0 {
-    w.WriteHeader(501)
-
-    err := <-a.errChan
-
-    sendJSON(w, response{Success: false, Error: err})
+  for quotes := range quotesChannel {
+    if err := c.WriteJSON(quotes); err != nil {
+      log.Println("write:", err)
+      break
+    }
   }
-
-  sendJSON(w, response{Success: true, Error: nil})
 }

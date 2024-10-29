@@ -1,8 +1,7 @@
 package services
 
 import (
-	"encoding/json"
-	"os"
+	"log"
 	"sync"
 
 	"github.com/jhrick/quotes-from-thinkers/internal/repository"
@@ -20,32 +19,23 @@ type QuotesModel struct {
   Text string
 }
 
-type implQuotes struct {
-  quotesChannel chan QuotesSchema
-  errChannel    chan error
-}
+type ImplQuotes struct {}
 
-func QuotesService(quotesChannel chan QuotesSchema, errChannel chan error) implQuotes {
-  impl := &implQuotes{
-    quotesChannel: quotesChannel,
-    errChannel: errChannel,
-  }
+func QuotesService() ImplQuotes {
+  impl := &ImplQuotes{}
 
   return *impl
 }
 
 var quotes map[string][]QuotesModel
 
-func (q *implQuotes) InsertQuotes(wg *sync.WaitGroup) {
+func (q *ImplQuotes) InsertQuotes(data []QuotesSchema, wg *sync.WaitGroup) {
   authors := make(map[string]string)
 
-  for quote := range q.quotesChannel {
-    _, ok := <-q.quotesChannel
-    if !ok {
-      break
-    }
-
+  for i := 0; i < len(data); i++ {
     wg.Add(1)
+
+    quote := data[i]
 
     go func() {
       defer wg.Done()
@@ -54,7 +44,7 @@ func (q *implQuotes) InsertQuotes(wg *sync.WaitGroup) {
       if !ok {
         id, err := repository.Author.Create(quote.Author)
         if err != nil {
-          q.errChannel <- err
+          log.Println("quotes:", err)
           return
         }
 
@@ -64,36 +54,9 @@ func (q *implQuotes) InsertQuotes(wg *sync.WaitGroup) {
 
       err := repository.Quotes.Create(quote.ID, authorId, quote.Text)
       if err != nil {
-        q.errChannel <- err
+        log.Println("quotes:", err)
         return
       }
     }()
   }
-}
-
-func (q *implQuotes) GetQuotes() {
-  fName := "quotes.json"
-  file, err := os.Create(fName)
-  if err != nil {
-    q.errChannel <- err
-    return
-  }
-  defer file.Close()
-
-  quotes = make(map[string][]QuotesModel)
-
-  for quote := range q.quotesChannel {
-    line := QuotesModel{ ID: quote.ID, Text: quote.Text }
-    quotes[quote.Author] = append(quotes[quote.Author], line)
-
-    _, ok := <-q.quotesChannel
-    if !ok {
-      break
-    }
-  }
-
-  enc := json.NewEncoder(file)
-  enc.SetIndent("", "  ")
-
-  enc.Encode(quotes)
 }

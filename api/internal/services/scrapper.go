@@ -2,33 +2,28 @@ package services
 
 import (
 	"fmt"
+	"log"
 	"strconv"
 	"strings"
 
 	"github.com/gocolly/colly/v2"
 )
 
-type implScrapper struct {
-  quotesChannel chan QuotesSchema
-  errChannel    chan error
-}
+type ImplScrapper struct {}
 
-func ScrapperService(quoteChannel chan QuotesSchema, errChannel chan error) implScrapper {
-  impl := &implScrapper{
-    quotesChannel: quoteChannel,
-    errChannel: errChannel,
-  }
+func ScrapperService() ImplScrapper {
+  impl := &ImplScrapper{}
 
   return *impl
 }
 
-func (s *implScrapper) GetData(subdirectory string, limit int) {
+func (s *ImplScrapper) GetData(quotesChannel chan QuotesSchema, subdirectory string, limit int) {
   domain := "https://www.pensador.com"
 
   c := colly.NewCollector()
 
   c.OnError(func(r *colly.Response, err error) {
-    s.errChannel <- err
+    log.Println("scapper:", err)
   })
 
   c.OnHTML("div.thought-card", func (e *colly.HTMLElement) {
@@ -42,7 +37,7 @@ func (s *implScrapper) GetData(subdirectory string, limit int) {
       Text: text,
     }
  
-    s.quotesChannel <- quote
+    quotesChannel <- quote
   })
 
   c.OnHTML("a.nav", func (e *colly.HTMLElement) {
@@ -58,7 +53,7 @@ func (s *implScrapper) GetData(subdirectory string, limit int) {
 
     subdirectory = e.Attr("href")
 
-    s.GetData(subdirectory, limit)
+    s.GetData(quotesChannel, subdirectory, limit)
   })
 
   link := fmt.Sprintf("%s%s", domain, subdirectory)
